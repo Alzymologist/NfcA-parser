@@ -404,6 +404,6 @@ mod tests {
         let chunk = &SetTimesBoth::<22u32>::from_raw(&times_set)[0];
         let miller_element_set = chunk.convert_to_miller().unwrap();
         let frame = miller_element_set.collect_frame().unwrap();
-        assert_eq!(frame, Frame::StandardCrc(vec![0xB2]));
+        assert_eq!(frame, Frame::Standard(vec![0xB2]));
     }
 }

@@ -57,13 +57,7 @@ impl<const TICK_LEN: u32> SetTimesBoth<TICK_LEN> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::frame::Frame;
-
-    #[derive(Debug, Eq, PartialEq)]
-    enum FrameAttributed {
-        Manchester(Frame),
-        Miller(Frame),
-    }
+    use crate::frame::{Frame, FrameAttributed};
 
     fn check_many_frames(times_set: &[u32], expected_frame_set: &[FrameAttributed]) {
         let times_both = SetTimesBoth::<22u32>::from_raw(times_set);
@@ -157,28 +151,28 @@ mod tests {
         ];
         let expected_frame_set = [
             FrameAttributed::Miller(Frame::Short(0x26)),
-            FrameAttributed::Miller(Frame::StandardCrc(vec![0xB2])),
-            FrameAttributed::Miller(Frame::StandardCrc(vec![0xB2])),
-            FrameAttributed::Manchester(Frame::StandardCrc(vec![0xA3])),
-            FrameAttributed::Miller(Frame::StandardCrc(vec![0xB2])),
-            FrameAttributed::Manchester(Frame::StandardCrc(vec![0xA3])),
-            FrameAttributed::Miller(Frame::StandardCrc(vec![0xB2])),
-            FrameAttributed::Manchester(Frame::StandardCrc(vec![0xA3])),
-            FrameAttributed::Miller(Frame::StandardCrc(vec![0xB2])),
-            FrameAttributed::Manchester(Frame::StandardCrc(vec![0xA3])),
-            FrameAttributed::Miller(Frame::StandardCrc(vec![0xB2])),
-            FrameAttributed::Manchester(Frame::StandardCrc(vec![0xA3])),
-            FrameAttributed::Miller(Frame::StandardCrc(vec![0xB2])),
-            FrameAttributed::Manchester(Frame::StandardCrc(vec![0xA3])),
-            FrameAttributed::Miller(Frame::StandardCrc(vec![0xB2])),
-            FrameAttributed::Manchester(Frame::StandardCrc(vec![0xA3])),
-            FrameAttributed::Miller(Frame::StandardCrc(vec![0xB2])),
-            FrameAttributed::Manchester(Frame::StandardCrc(vec![0xA3])),
-            FrameAttributed::Miller(Frame::StandardCrc(vec![0xB2])),
-            FrameAttributed::Manchester(Frame::StandardCrc(vec![0xA3])),
-            FrameAttributed::Miller(Frame::StandardCrc(vec![0xB2])),
-            FrameAttributed::Manchester(Frame::StandardCrc(vec![0xA3])),
-            FrameAttributed::Miller(Frame::StandardCrc(vec![0xB2])),
+            FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
+            FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
+            FrameAttributed::Manchester(Frame::Standard(vec![0xA3])),
+            FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
+            FrameAttributed::Manchester(Frame::Standard(vec![0xA3])),
+            FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
+            FrameAttributed::Manchester(Frame::Standard(vec![0xA3])),
+            FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
+            FrameAttributed::Manchester(Frame::Standard(vec![0xA3])),
+            FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
+            FrameAttributed::Manchester(Frame::Standard(vec![0xA3])),
+            FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
+            FrameAttributed::Manchester(Frame::Standard(vec![0xA3])),
+            FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
+            FrameAttributed::Manchester(Frame::Standard(vec![0xA3])),
+            FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
+            FrameAttributed::Manchester(Frame::Standard(vec![0xA3])),
+            FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
+            FrameAttributed::Manchester(Frame::Standard(vec![0xA3])),
+            FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
+            FrameAttributed::Manchester(Frame::Standard(vec![0xA3])),
+            FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
         ];
         check_many_frames(&times_set, &expected_frame_set);
     }
@@ -242,12 +236,12 @@ mod tests {
         ];
         let expected_frame_set = [
             FrameAttributed::Miller(Frame::Short(0x26)),
-            FrameAttributed::Miller(Frame::StandardCrc(vec![0x50, 0x00])),
-            FrameAttributed::Miller(Frame::StandardCrc(vec![0xB2])),
-            FrameAttributed::Miller(Frame::StandardCrc(vec![0xB2])),
-            FrameAttributed::Manchester(Frame::StandardCrc(vec![0xA3])),
-            FrameAttributed::Miller(Frame::StandardCrc(vec![0xB2])),
-            FrameAttributed::Manchester(Frame::StandardCrc(vec![0xA3])),
+            FrameAttributed::Miller(Frame::Standard(vec![0x50, 0x00])),
+            FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
+            FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
+            FrameAttributed::Manchester(Frame::Standard(vec![0xA3])),
+            FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
+            FrameAttributed::Manchester(Frame::Standard(vec![0xA3])),
         ];
         check_many_frames(&times_set, &expected_frame_set);
     }

@@ -354,6 +354,6 @@ mod tests {
         let chunk = &SetTimesBoth::<22u32>::from_raw(&times_set)[0];
         let manchester_element_set = chunk.convert_to_manchester().unwrap();
         let frame = manchester_element_set.collect_frame().unwrap();
-        assert_eq!(frame, Frame::StandardCrc(vec![0xA3]));
+        assert_eq!(frame, Frame::Standard(vec![0xA3]));
     }
 }

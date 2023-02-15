@@ -9,8 +9,9 @@ pub const EDC_CALC: Crc<u16> = Crc::<u16>::new(&CRC_16_ISO_IEC_14443_3_A);
 #[derive(Debug, Eq, PartialEq)]
 pub enum Frame {
     Short(u8),
-    StandardNoCrc(Vec<u8>),
-    StandardCrc(Vec<u8>),
+    SddBits(BitVec<u8, Lsb0>),
+    SddCleanCut(Vec<u8>),
+    Standard(Vec<u8>),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -45,25 +46,25 @@ impl CompleteCollector {
                         }
                     }
                     if total_bytes < 3 {
-                        Ok(Frame::StandardNoCrc(out))
+                        Ok(Frame::SddCleanCut(out))
                     } else {
                         let crc = u16::from_le_bytes(
                             out[total_bytes - 2..]
                                 .try_into()
                                 .expect("static length, always fits"),
                         );
-                        let out = out[..total_bytes - 2].to_vec();
-                        if EDC_CALC.checksum(&out) == crc {
-                            Ok(Frame::StandardCrc(out))
+                        let out_no_crc = &out[..total_bytes - 2];
+                        if EDC_CALC.checksum(out_no_crc) == crc {
+                            Ok(Frame::Standard(out_no_crc.to_vec()))
                         } else {
-                            Err(FrameError::CrcMismatch)
+                            Ok(Frame::SddCleanCut(out))
                         }
                     }
                 } else {
-                    Err(FrameError::LengthNot9Multiple)
+                    Ok(Frame::SddBits(self.data.to_bitvec()))
                 }
             }
-            Ordering::Equal => Err(FrameError::Length8Bit),
+            Ordering::Equal => Ok(Frame::SddBits(self.data.to_bitvec())),
             Ordering::Less => {
                 let byte: u8 = self.data.to_owned().into_vec()[0];
                 Ok(Frame::Short(byte))
@@ -71,6 +72,18 @@ impl CompleteCollector {
         }
     }
 }
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum FrameAttributed {
+    Manchester(Frame),
+    Miller(Frame),
+}
+
+/// ALL_REQ, expected as short Miller frame
+pub const ALL_REQ: u8 = 0x52;
+
+/// SENS_REQ, expected as short Miller frame
+pub const SENS_REQ: u8 = 0x26;
 
 #[cfg(test)]
 mod tests {
@@ -101,7 +114,7 @@ mod tests {
             data: bitvec![u8, Lsb0; 0, 0, 0, 0, 1, 0, 1, 0, 1],
         };
         let frame = complete_collector.to_frame().unwrap();
-        assert_eq!(frame, Frame::StandardNoCrc(vec![0x50]));
+        assert_eq!(frame, Frame::SddCleanCut(vec![0x50]));
     }
 
     #[test]
@@ -110,6 +123,6 @@ mod tests {
             data: bitvec![u8, Lsb0; 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0],
         };
         let frame = complete_collector.to_frame().unwrap();
-        assert_eq!(frame, Frame::StandardCrc(vec![0x50, 0x00]));
+        assert_eq!(frame, Frame::Standard(vec![0x50, 0x00]));
     }
 }

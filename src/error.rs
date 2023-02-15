@@ -1,8 +1,6 @@
 #[derive(Debug, Eq, PartialEq)]
 pub enum FrameError {
     CrcMismatch,
-    Length8Bit,
-    LengthNot9Multiple,
     ParityBit,
 }
 
