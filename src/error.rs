@@ -1,6 +1,7 @@
 #[derive(Debug, Eq, PartialEq)]
 pub enum FrameError {
     CrcMismatch,
+    EmptyFrame,
     ParityBit,
 }
 
@@ -10,15 +11,15 @@ pub enum ManchesterError {
     Frame(FrameError),
     IncompleteFrame,
     NoAddingToComplete,
-    UnexpectedOddInterval,
-    UnexpectedEvenInterval,
+    UnexpectedOddInterval(u16),
+    UnexpectedEvenInterval(u16),
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum MillerError {
     Frame(FrameError),
     IncompleteFrame,
-    UnexpectedInterval,
-    UnexpectedMillerOffInterval,
+    UnexpectedInterval(u16),
+    UnexpectedMillerOffInterval(u16),
     WrongMillerSequence,
 }

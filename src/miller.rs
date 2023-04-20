@@ -1,3 +1,8 @@
+#[cfg(feature = "std")]
+use std::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 use bitvec::prelude::{BitVec, Lsb0};
 
 use crate::error::MillerError;
@@ -70,12 +75,12 @@ impl MillerCollector {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct MillerTimesDown<const TICK_LEN: u32> {
-    time_down_set: Vec<u32>,
+pub struct MillerTimesDown<const TICK_LEN: u16> {
+    time_down_set: Vec<u16>,
 }
 
-impl<const TICK_LEN: u32> MillerTimesDown<TICK_LEN> {
-    pub fn from_raw(time_down_input: &[u32]) -> Vec<Self> {
+impl<const TICK_LEN: u16> MillerTimesDown<TICK_LEN> {
+    pub fn from_raw(time_down_input: &[u16]) -> Vec<Self> {
         time_down_input
             .split(|interval| *interval > 19 * TICK_LEN)
             .map(|slice| MillerTimesDown::<TICK_LEN> {
@@ -95,6 +100,15 @@ impl<const TICK_LEN: u32> MillerTimesDown<TICK_LEN> {
         for time_interval in self.time_down_set.iter() {
             miller_element_set.add_time_down_interval::<TICK_LEN>(*time_interval)?;
         }
+        match miller_element_set.element_set.last() {
+            None => {},
+            Some(MillerElement::X) => {
+                miller_element_set.element_set.push(MillerElement::Y);
+                miller_element_set.element_set.push(MillerElement::Y);
+            },
+            Some(MillerElement::Y) => unreachable!(),
+            Some(MillerElement::Z) => miller_element_set.element_set.push(MillerElement::Y),
+        }
         Ok(miller_element_set)
     }
 }
@@ -111,9 +125,9 @@ impl MillerElementSet {
         }
     }
 
-    fn process_previous_x<const TICK_LEN: u32>(
+    fn process_previous_x<const TICK_LEN: u16>(
         &mut self,
-        interval: u32,
+        interval: u16,
     ) -> Result<(), MillerError> {
         if (interval >= 7 * TICK_LEN) & (interval <= 9 * TICK_LEN) {
             self.element_set.push(MillerElement::X)
@@ -124,14 +138,14 @@ impl MillerElementSet {
             self.element_set.push(MillerElement::Y);
             self.element_set.push(MillerElement::X);
         } else {
-            return Err(MillerError::UnexpectedInterval);
+            return Err(MillerError::UnexpectedInterval(interval));
         }
         Ok(())
     }
 
-    fn process_previous_z<const TICK_LEN: u32>(
+    fn process_previous_z<const TICK_LEN: u16>(
         &mut self,
-        interval: u32,
+        interval: u16,
     ) -> Result<(), MillerError> {
         if (interval >= 7 * TICK_LEN) & (interval <= 9 * TICK_LEN) {
             self.element_set.push(MillerElement::Z)
@@ -143,14 +157,14 @@ impl MillerElementSet {
             self.element_set.push(MillerElement::Y);
             self.element_set.push(MillerElement::Z);
         } else {
-            return Err(MillerError::UnexpectedInterval);
+            return Err(MillerError::UnexpectedInterval(interval));
         }
         Ok(())
     }
 
-    fn add_time_down_interval<const TICK_LEN: u32>(
+    fn add_time_down_interval<const TICK_LEN: u16>(
         &mut self,
-        interval: u32,
+        interval: u16,
     ) -> Result<(), MillerError> {
         // intervals above 20 ticks are expected to be eliminated at this point
         match self.element_set.last() {
@@ -164,12 +178,12 @@ impl MillerElementSet {
         }
     }
 
-    pub(crate) fn add_time_both_interval<const TICK_LEN: u32>(
+    pub(crate) fn add_time_both_interval<const TICK_LEN: u16>(
         &mut self,
         time_both: EntryTimesBoth,
     ) -> Result<(), MillerError> {
         if (time_both.first_len < 3 * TICK_LEN) | (time_both.first_len > 5 * TICK_LEN) {
-            return Err(MillerError::UnexpectedMillerOffInterval);
+            return Err(MillerError::UnexpectedMillerOffInterval(time_both.first_len));
         }
         // intervals above 16 ticks are expected to be eliminated at this point
         match self.element_set.last() {
@@ -213,13 +227,13 @@ impl MillerElementSet {
         }
     }
 
-    pub fn from_times_down<const TICK_LEN: u32>(
+    pub fn from_times_down<const TICK_LEN: u16>(
         times_down: MillerTimesDown<TICK_LEN>,
     ) -> Result<Self, MillerError> {
         times_down.convert()
     }
 
-    pub fn from_times_both<const TICK_LEN: u32>(
+    pub fn from_times_both<const TICK_LEN: u16>(
         times_both: SetTimesBoth<TICK_LEN>,
     ) -> Result<Self, MillerError> {
         times_both.convert_to_miller()
@@ -244,6 +258,7 @@ impl Default for MillerElementSet {
     }
 }
 
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -384,11 +399,24 @@ mod tests {
     }
 
     #[test]
+    fn miller_time_down() {
+        let times_set = [
+            187, 266, 269, 269, 359, 1894
+        ];
+        let chunk = &MillerTimesDown::<22u16>::from_raw(&times_set)[0];
+        println!("{:?}", chunk);
+        let miller_element_set = chunk.convert().unwrap();
+        println!("{:?}", miller_element_set);
+        let frame = miller_element_set.collect_frame().unwrap();
+        assert_eq!(frame, Frame::Short(0x52));
+    }
+
+    #[test]
     fn miller_time_both_1() {
         let times_set = [
             25001, 82, 101, 75, 191, 80, 102, 75, 191, 79, 189, 80, 189, 80, 1734,
         ];
-        let chunk = &SetTimesBoth::<22u32>::from_raw(&times_set)[0];
+        let chunk = &SetTimesBoth::<22u16>::from_raw(&times_set)[0];
         let miller_element_set = chunk.convert_to_miller().unwrap();
         let frame = miller_element_set.collect_frame().unwrap();
         assert_eq!(frame, Frame::Short(0x26));
@@ -401,7 +429,7 @@ mod tests {
             68, 111, 68, 198, 71, 198, 71, 109, 69, 198, 71, 198, 71, 110, 68, 110, 68, 199, 71,
             110, 68, 199, 70, 110, 68, 199, 71, 1737,
         ];
-        let chunk = &SetTimesBoth::<22u32>::from_raw(&times_set)[0];
+        let chunk = &SetTimesBoth::<22u16>::from_raw(&times_set)[0];
         let miller_element_set = chunk.convert_to_miller().unwrap();
         let frame = miller_element_set.collect_frame().unwrap();
         assert_eq!(frame, Frame::Standard(vec![0xB2]));

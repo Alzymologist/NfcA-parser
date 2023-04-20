@@ -1,6 +1,11 @@
 use bitvec::prelude::{BitVec, Lsb0};
 use crc::{Crc, CRC_16_ISO_IEC_14443_3_A};
-use std::cmp::Ordering;
+#[cfg(feature = "std")]
+use std::{borrow::ToOwned, cmp::Ordering, vec::Vec};
+#[cfg(not(feature = "std"))]
+use core::cmp::Ordering;
+#[cfg(not(feature = "std"))]
+use alloc::{borrow::ToOwned, vec::Vec};
 
 use crate::error::FrameError;
 
@@ -22,6 +27,7 @@ pub struct CompleteCollector {
 impl CompleteCollector {
     pub fn to_frame(&self) -> Result<Frame, FrameError> {
         let data_len = self.data.len();
+        if data_len == 0 {return Err(FrameError::EmptyFrame)}
         match data_len.cmp(&8) {
             Ordering::Greater => {
                 if data_len % 9 == 0 {
@@ -79,12 +85,7 @@ pub enum FrameAttributed {
     Miller(Frame),
 }
 
-/// ALL_REQ, expected as short Miller frame
-pub const ALL_REQ: u8 = 0x52;
-
-/// SENS_REQ, expected as short Miller frame
-pub const SENS_REQ: u8 = 0x26;
-
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
     use super::*;
