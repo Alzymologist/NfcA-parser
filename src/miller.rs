@@ -74,7 +74,7 @@ impl MillerCollector {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MillerTimesDown<const TICK_LEN: u16> {
     time_down_set: Vec<u16>,
 }
@@ -83,7 +83,7 @@ impl<const TICK_LEN: u16> MillerTimesDown<TICK_LEN> {
     pub fn from_raw(time_down_input: &[u16]) -> Vec<Self> {
         time_down_input
             .split(|interval| *interval > 19 * TICK_LEN)
-            .map(|slice| MillerTimesDown::<TICK_LEN> {
+            .map(|slice| Self {
                 time_down_set: slice.to_vec(),
             })
             .collect()
@@ -110,6 +110,12 @@ impl<const TICK_LEN: u16> MillerTimesDown<TICK_LEN> {
             Some(MillerElement::Z) => miller_element_set.element_set.push(MillerElement::Y),
         }
         Ok(miller_element_set)
+    }
+
+    pub fn stitch_with_tail(&self, tail: &Self) -> Self {
+        Self {
+            time_down_set: [tail.time_down_set.to_vec(), self.time_down_set.to_vec()].concat()
+        }
     }
 }
 
