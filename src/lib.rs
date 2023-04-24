@@ -9,7 +9,6 @@ extern crate core;
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
-pub mod dialog_interpreter;
 pub mod error;
 pub mod frame;
 pub mod manchester;
