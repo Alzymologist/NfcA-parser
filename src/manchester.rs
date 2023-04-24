@@ -1,3 +1,8 @@
+#[cfg(feature = "std")]
+use std::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 use bitvec::prelude::{BitVec, Lsb0};
 
 use crate::error::ManchesterError;
@@ -61,7 +66,7 @@ impl ManchesterElementSet {
         }
     }
 
-    fn process_previous_d<const TICK_LEN: u32>(
+    fn process_previous_d<const TICK_LEN: u16>(
         &mut self,
         time_both: EntryTimesBoth,
     ) -> Result<(), ManchesterError> {
@@ -71,7 +76,7 @@ impl ManchesterElementSet {
         } else if (time_both.first_len >= 11 * TICK_LEN) & (time_both.first_len <= 13 * TICK_LEN) {
             self.element_set.push(ManchesterElement::F)
         } else {
-            return Err(ManchesterError::UnexpectedOddInterval);
+            return Err(ManchesterError::UnexpectedOddInterval(time_both.first_len));
         }
         if let Some(second_len) = time_both.second_len {
             match self
@@ -83,7 +88,7 @@ impl ManchesterElementSet {
                     if (second_len >= 3 * TICK_LEN) & (second_len <= 5 * TICK_LEN) {
                         self.element_set.push(ManchesterElement::D)
                     } else {
-                        return Err(ManchesterError::UnexpectedEvenInterval);
+                        return Err(ManchesterError::UnexpectedEvenInterval(second_len));
                     }
                 }
                 ManchesterElement::E => {
@@ -91,14 +96,14 @@ impl ManchesterElementSet {
                     } else if (second_len >= 7 * TICK_LEN) & (second_len <= 9 * TICK_LEN) {
                         self.element_set.push(ManchesterElement::D)
                     } else {
-                        return Err(ManchesterError::UnexpectedEvenInterval);
+                        return Err(ManchesterError::UnexpectedEvenInterval(second_len));
                     }
                 }
                 ManchesterElement::F => {
                     if (second_len >= 3 * TICK_LEN) & (second_len <= 5 * TICK_LEN) {
                         self.element_set.push(ManchesterElement::D)
                     } else {
-                        return Err(ManchesterError::UnexpectedEvenInterval);
+                        return Err(ManchesterError::UnexpectedEvenInterval(second_len));
                     }
                 }
             }
@@ -106,7 +111,7 @@ impl ManchesterElementSet {
         Ok(())
     }
 
-    fn process_previous_e<const TICK_LEN: u32>(
+    fn process_previous_e<const TICK_LEN: u16>(
         &mut self,
         time_both: EntryTimesBoth,
     ) -> Result<(), ManchesterError> {
@@ -115,7 +120,7 @@ impl ManchesterElementSet {
         } else if (time_both.first_len >= 7 * TICK_LEN) & (time_both.first_len <= 9 * TICK_LEN) {
             self.element_set.push(ManchesterElement::F)
         } else {
-            return Err(ManchesterError::UnexpectedOddInterval);
+            return Err(ManchesterError::UnexpectedOddInterval(time_both.first_len));
         }
         if let Some(second_len) = time_both.second_len {
             match self
@@ -129,14 +134,14 @@ impl ManchesterElementSet {
                     } else if (second_len >= 7 * TICK_LEN) & (second_len <= 9 * TICK_LEN) {
                         self.element_set.push(ManchesterElement::D)
                     } else {
-                        return Err(ManchesterError::UnexpectedEvenInterval);
+                        return Err(ManchesterError::UnexpectedEvenInterval(second_len));
                     }
                 }
                 ManchesterElement::F => {
                     if (second_len >= 3 * TICK_LEN) & (second_len <= 5 * TICK_LEN) {
                         self.element_set.push(ManchesterElement::D)
                     } else {
-                        return Err(ManchesterError::UnexpectedEvenInterval);
+                        return Err(ManchesterError::UnexpectedEvenInterval(second_len));
                     }
                 }
             }
@@ -147,7 +152,7 @@ impl ManchesterElementSet {
     /// Modulation is always present on the PICC. modulation is suppressed for
     /// the duration of F element to indicate the end of frame.
     /// Outer long time intervals are modulated.
-    pub(crate) fn add_time_both_interval<const TICK_LEN: u32>(
+    pub(crate) fn add_time_both_interval<const TICK_LEN: u16>(
         &mut self,
         time_both: EntryTimesBoth,
     ) -> Result<(), ManchesterError> {
@@ -162,7 +167,7 @@ impl ManchesterElementSet {
         }
     }
 
-    pub fn from_times_both<const TICK_LEN: u32>(
+    pub fn from_times_both<const TICK_LEN: u16>(
         times_both: SetTimesBoth<TICK_LEN>,
     ) -> Result<Self, ManchesterError> {
         times_both.convert_to_manchester()
@@ -189,6 +194,7 @@ impl Default for ManchesterElementSet {
     }
 }
 
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -351,7 +357,7 @@ mod tests {
             81, 98, 81, 176, 178, 102, 82, 175, 179, 181, 178, 102, 80, 177, 93, 98, 80, 98, 167,
             101, 82, 97, 82, 256, 28703,
         ];
-        let chunk = &SetTimesBoth::<22u32>::from_raw(&times_set)[0];
+        let chunk = &SetTimesBoth::<22u16>::from_raw(&times_set)[0];
         let manchester_element_set = chunk.convert_to_manchester().unwrap();
         let frame = manchester_element_set.collect_frame().unwrap();
         assert_eq!(frame, Frame::Standard(vec![0xA3]));

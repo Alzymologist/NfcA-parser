@@ -1,21 +1,26 @@
+#[cfg(feature = "std")]
+use std::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 use crate::error::{ManchesterError, MillerError};
 use crate::manchester::ManchesterElementSet;
 use crate::miller::MillerElementSet;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct EntryTimesBoth {
-    pub(crate) first_len: u32,
-    pub(crate) second_len: Option<u32>,
+    pub(crate) first_len: u16,
+    pub(crate) second_len: Option<u16>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct SetTimesBoth<const TICK_LEN: u32> {
+pub struct SetTimesBoth<const TICK_LEN: u16> {
     time_both_set: Vec<EntryTimesBoth>,
 }
 
-impl<const TICK_LEN: u32> SetTimesBoth<TICK_LEN> {
+impl<const TICK_LEN: u16> SetTimesBoth<TICK_LEN> {
     /// Assume here that long intervals are `on` (no modulation).
-    pub fn from_raw(time_both_input: &[u32]) -> Vec<Self> {
+    pub fn from_raw(time_both_input: &[u16]) -> Vec<Self> {
         time_both_input
             .split(|interval| *interval > 15 * TICK_LEN)
             .filter(|interval| interval.len() % 2 == 1)
@@ -54,13 +59,14 @@ impl<const TICK_LEN: u32> SetTimesBoth<TICK_LEN> {
     }
 }
 
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::frame::{Frame, FrameAttributed};
 
-    fn check_many_frames(times_set: &[u32], expected_frame_set: &[FrameAttributed]) {
-        let times_both = SetTimesBoth::<22u32>::from_raw(times_set);
+    fn check_many_frames<const N: u16>(times_set: &[u16], expected_frame_set: &[FrameAttributed]) {
+        let times_both = SetTimesBoth::<N>::from_raw(times_set);
         let mut frame_set: Vec<FrameAttributed> = Vec::new();
         for chunk in times_both.iter() {
             if let Ok(miller_element_set) = chunk.convert_to_miller() {
@@ -174,7 +180,7 @@ mod tests {
             FrameAttributed::Manchester(Frame::Standard(vec![0xA3])),
             FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
         ];
-        check_many_frames(&times_set, &expected_frame_set);
+        check_many_frames::<22u16>(&times_set, &expected_frame_set);
     }
 
     #[test]
@@ -243,6 +249,6 @@ mod tests {
             FrameAttributed::Miller(Frame::Standard(vec![0xB2])),
             FrameAttributed::Manchester(Frame::Standard(vec![0xA3])),
         ];
-        check_many_frames(&times_set, &expected_frame_set);
+        check_many_frames::<22u16>(&times_set, &expected_frame_set);
     }
 }
