@@ -11,7 +11,7 @@ use crate::error::FrameError;
 
 pub const EDC_CALC: Crc<u16> = Crc::<u16>::new(&CRC_16_ISO_IEC_14443_3_A);
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Frame {
     Short(u8),
     SddBits(BitVec<u8, Lsb0>),
