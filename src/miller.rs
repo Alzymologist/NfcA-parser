@@ -102,10 +102,10 @@ impl<const TICK_LEN: u16> MillerTimesDown<TICK_LEN> {
         }
         Ok(miller_element_set)
     }
-
-    pub fn stitch_with_tail(self, tail: Self) -> Self {
+  
+    pub fn stitch_with_tail(&self, tail: &Self) -> Self {
         Self {
-            time_down_set: [tail.time_down_set, self.time_down_set].concat()
+            time_down_set: [tail.time_down_set.to_vec(), self.time_down_set.to_vec()].concat()
         }
     }
 }
