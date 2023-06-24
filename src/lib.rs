@@ -11,6 +11,7 @@ extern crate alloc;
 
 pub mod error;
 pub mod frame;
-pub mod manchester;
+//pub mod manchester;
 pub mod miller;
-pub mod time_record_both_ways;
+pub mod miller_reworked;
+//pub mod time_record_both_ways;

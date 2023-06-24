@@ -9,6 +9,45 @@ use crate::error::MillerError;
 use crate::frame::{CompleteCollector, Frame};
 //use crate::time_record_both_ways::{EntryTimesBoth, SetTimesBoth};
 
+impl Frame {
+    pub fn process_buffer_miller_skip_tails<P, const TICK_LEN: u16>(buffer: &[u16], frame_filter: P) -> Vec<Self>
+        where P: Fn(&Self) -> bool
+    {
+        let iter = buffer.split(|interval| *interval > 19 * TICK_LEN);
+        let iter_len = buffer.split(|interval| *interval > 19 * TICK_LEN).count();
+        if iter_len > 2 {
+            let mut frames_set = Vec::new();
+            for times_set in iter.skip(1).take(iter_len-2) {
+                let mut miller_element_set = MillerElementSet::new();
+                let mut flag_not_miller = false;
+                for time_interval in times_set.into_iter() {
+                    if let Err(_) = miller_element_set.add_time_down_interval::<TICK_LEN>(*time_interval) {
+                        flag_not_miller = true;
+                        break;
+                    };
+                }
+                if flag_not_miller {break;}
+                match miller_element_set.element_set.last() {
+                    None => {},
+                    Some(MillerElement::X) => {
+                        miller_element_set.element_set.push(MillerElement::Y);
+                        miller_element_set.element_set.push(MillerElement::Y);
+                    },
+                    Some(MillerElement::Y) => unreachable!(),
+                    Some(MillerElement::Z) => miller_element_set.element_set.push(MillerElement::Y),
+                }
+                if let Ok(frame) = miller_element_set.collect_frame() {
+                    if frame_filter(&frame) {
+                        frames_set.push(frame)
+                    }
+                }
+            }
+            frames_set
+        }
+        else {Vec::new()}
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum MillerElement {
     X,
@@ -66,21 +105,13 @@ impl MillerCollector {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MillerTimesDown<const TICK_LEN: u16> {
-    time_down_set: Vec<u16>,
+pub struct MillerTimesDown<'a, const TICK_LEN: u16> {
+    time_down_set: &'a [u16],
 }
 
-impl<const TICK_LEN: u16> MillerTimesDown<TICK_LEN> {
-    pub fn from_raw(time_down_input: &[u16]) -> Vec<Self> {
-        time_down_input
-            .split(|interval| *interval > 19 * TICK_LEN)
-            .map(|slice| Self {
-                time_down_set: slice.to_vec(),
-            })
-            .collect()
-    }
+impl<'a, const TICK_LEN: u16> MillerTimesDown<'a, TICK_LEN> {
 
-    pub fn convert(self) -> Result<MillerElementSet, MillerError> {
+    pub fn convert(self) -> Result<Frame, MillerError> {
         // each bit length is 8 ticks; expected error is 1 tick;
         // time intervals in off mode are identical throughout the code;
         // no signal corresponds to 2 or more completely "on" bits, i.e. 16 ticks.
@@ -89,7 +120,7 @@ impl<const TICK_LEN: u16> MillerTimesDown<TICK_LEN> {
         // XYY (20 ticks) or ZYY (24 ticks)
         let mut miller_element_set = MillerElementSet::new();
         for time_interval in self.time_down_set.into_iter() {
-            miller_element_set.add_time_down_interval::<TICK_LEN>(time_interval)?;
+            miller_element_set.add_time_down_interval::<TICK_LEN>(*time_interval)?;
         }
         match miller_element_set.element_set.last() {
             None => {},
@@ -100,19 +131,13 @@ impl<const TICK_LEN: u16> MillerTimesDown<TICK_LEN> {
             Some(MillerElement::Y) => unreachable!(),
             Some(MillerElement::Z) => miller_element_set.element_set.push(MillerElement::Y),
         }
-        Ok(miller_element_set)
-    }
-  
-    pub fn stitch_with_tail(&self, tail: &Self) -> Self {
-        Self {
-            time_down_set: [tail.time_down_set.to_vec(), self.time_down_set.to_vec()].concat()
-        }
+        miller_element_set.collect_frame()
     }
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct MillerElementSet {
-    element_set: Vec<MillerElement>,
+    pub element_set: Vec<MillerElement>,
 }
 
 impl MillerElementSet {
@@ -223,13 +248,6 @@ impl MillerElementSet {
             },
         }
     }
-*/
-    pub fn from_times_down<const TICK_LEN: u16>(
-        times_down: MillerTimesDown<TICK_LEN>,
-    ) -> Result<Self, MillerError> {
-        times_down.convert()
-    }
-/*
     pub fn from_times_both<const TICK_LEN: u16>(
         times_both: SetTimesBoth<TICK_LEN>,
     ) -> Result<Self, MillerError> {
@@ -254,182 +272,3 @@ impl Default for MillerElementSet {
         Self::new()
     }
 }
-/*
-#[cfg(feature = "std")]
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use bitvec::prelude::bitvec;
-
-    #[test]
-    fn miller_collector_01() {
-        let mut collector = MillerCollector::Empty;
-        assert!(collector.add_element(&MillerElement::X).is_err());
-        assert!(collector.add_element(&MillerElement::Y).is_err());
-        collector.add_element(&MillerElement::Z).unwrap();
-        assert_eq!(
-            collector,
-            MillerCollector::InProgress(BitVec::<u8, Lsb0>::new())
-        );
-    }
-
-    #[test]
-    fn miller_collector_02() {
-        let mut collector = MillerCollector::InProgress(BitVec::<u8, Lsb0>::new());
-        collector.add_element(&MillerElement::X).unwrap();
-        assert_eq!(collector, MillerCollector::InProgress(bitvec![u8, Lsb0; 1]));
-    }
-
-    #[test]
-    fn miller_collector_03() {
-        let mut collector = MillerCollector::InProgress(BitVec::<u8, Lsb0>::new());
-        assert!(collector.add_element(&MillerElement::Y).is_err());
-    }
-
-    #[test]
-    fn miller_collector_04() {
-        let mut collector = MillerCollector::InProgress(BitVec::<u8, Lsb0>::new());
-        collector.add_element(&MillerElement::Z).unwrap();
-        assert_eq!(collector, MillerCollector::InProgress(bitvec![u8, Lsb0; 0]));
-    }
-
-    #[test]
-    fn miller_collector_05() {
-        let mut collector = MillerCollector::InProgress(bitvec![u8, Lsb0; 0]);
-        collector.add_element(&MillerElement::X).unwrap();
-        assert_eq!(
-            collector,
-            MillerCollector::InProgress(bitvec![u8, Lsb0; 0, 1])
-        );
-    }
-
-    #[test]
-    fn miller_collector_06() {
-        let mut collector = MillerCollector::InProgress(bitvec![u8, Lsb0; 0]);
-        collector.add_element(&MillerElement::Y).unwrap();
-        assert_eq!(
-            collector,
-            MillerCollector::Complete(CompleteCollector {
-                data: BitVec::<u8, Lsb0>::new()
-            })
-        );
-    }
-
-    #[test]
-    fn miller_collector_07() {
-        let mut collector = MillerCollector::InProgress(bitvec![u8, Lsb0; 0]);
-        collector.add_element(&MillerElement::Z).unwrap();
-        assert_eq!(
-            collector,
-            MillerCollector::InProgress(bitvec![u8, Lsb0; 0, 0])
-        );
-    }
-
-    #[test]
-    fn miller_collector_08() {
-        let mut collector = MillerCollector::InProgress(bitvec![u8, Lsb0; 1]);
-        collector.add_element(&MillerElement::X).unwrap();
-        assert_eq!(
-            collector,
-            MillerCollector::InProgress(bitvec![u8, Lsb0; 1, 1])
-        );
-    }
-
-    #[test]
-    fn miller_collector_09() {
-        let mut collector = MillerCollector::InProgress(bitvec![u8, Lsb0; 1]);
-        collector.add_element(&MillerElement::Y).unwrap();
-        assert_eq!(
-            collector,
-            MillerCollector::InProgress(bitvec![u8, Lsb0; 1, 0])
-        );
-    }
-
-    #[test]
-    fn miller_collector_10() {
-        let mut collector = MillerCollector::InProgress(bitvec![u8, Lsb0; 1]);
-        assert!(collector.add_element(&MillerElement::Z).is_err());
-    }
-
-    #[test]
-    fn miller_sequence_1() {
-        let sequence = [
-            MillerElement::Z,
-            MillerElement::X,
-            MillerElement::Y,
-            MillerElement::Z,
-            MillerElement::X,
-            MillerElement::Y,
-            MillerElement::Y,
-        ];
-        let mut collector = MillerCollector::Empty;
-        for element in sequence {
-            collector.add_element(&element).unwrap();
-        }
-        assert_eq!(
-            collector,
-            MillerCollector::Complete(CompleteCollector {
-                data: bitvec![u8, Lsb0; 1, 0, 0, 1]
-            })
-        );
-    }
-
-    #[test]
-    fn miller_sequence_2() {
-        let sequence = [
-            MillerElement::Z,
-            MillerElement::X,
-            MillerElement::Y,
-            MillerElement::Z,
-            MillerElement::Y,
-        ];
-        let mut collector = MillerCollector::Empty;
-        for element in sequence {
-            collector.add_element(&element).unwrap();
-        }
-        assert_eq!(
-            collector,
-            MillerCollector::Complete(CompleteCollector {
-                data: bitvec![u8, Lsb0; 1, 0]
-            })
-        );
-    }
-
-    #[test]
-    fn miller_time_down() {
-        let times_set = [
-            187, 266, 269, 269, 359, 1894
-        ];
-        let chunk = &MillerTimesDown::<22u16>::from_raw(&times_set)[0];
-        println!("{:?}", chunk);
-        let miller_element_set = chunk.convert().unwrap();
-        println!("{:?}", miller_element_set);
-        let frame = miller_element_set.collect_frame().unwrap();
-        assert_eq!(frame, Frame::Short(0x52));
-    }
-
-    #[test]
-    fn miller_time_both_1() {
-        let times_set = [
-            25001, 82, 101, 75, 191, 80, 102, 75, 191, 79, 189, 80, 189, 80, 1734,
-        ];
-        let chunk = &SetTimesBoth::<22u16>::from_raw(&times_set)[0];
-        let miller_element_set = chunk.convert_to_miller().unwrap();
-        let frame = miller_element_set.collect_frame().unwrap();
-        assert_eq!(frame, Frame::Short(0x26));
-    }
-
-    #[test]
-    fn miller_time_both_2() {
-        let times_set = [
-            58364, 72, 110, 68, 198, 71, 198, 71, 198, 71, 109, 68, 289, 71, 110, 68, 111, 68, 110,
-            68, 111, 68, 198, 71, 198, 71, 109, 69, 198, 71, 198, 71, 110, 68, 110, 68, 199, 71,
-            110, 68, 199, 70, 110, 68, 199, 71, 1737,
-        ];
-        let chunk = &SetTimesBoth::<22u16>::from_raw(&times_set)[0];
-        let miller_element_set = chunk.convert_to_miller().unwrap();
-        let frame = miller_element_set.collect_frame().unwrap();
-        assert_eq!(frame, Frame::Standard(vec![0xB2]));
-    }
-}
-*/

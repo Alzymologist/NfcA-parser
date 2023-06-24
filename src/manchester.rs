@@ -36,11 +36,9 @@ impl ManchesterCollector {
             ManchesterCollector::InProgress(set) => match element {
                 ManchesterElement::D => {
                     set.push(true);
-                    *self = ManchesterCollector::InProgress(set.to_bitvec())
                 }
                 ManchesterElement::E => {
                     set.push(false);
-                    *self = ManchesterCollector::InProgress(set.to_bitvec())
                 }
                 ManchesterElement::F => {
                     *self = ManchesterCollector::Complete(CompleteCollector {

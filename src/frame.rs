@@ -1,4 +1,4 @@
-use bitvec::prelude::{BitVec, Lsb0};
+use bitvec::prelude::{BitSlice, BitVec, Lsb0};
 use crc::{Crc, CRC_16_ISO_IEC_14443_3_A};
 #[cfg(feature = "std")]
 use std::{borrow::ToOwned, cmp::Ordering, vec::Vec};
@@ -20,12 +20,12 @@ pub enum Frame {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct CompleteCollector {
-    pub(crate) data: BitVec<u8, Lsb0>,
+pub struct CompleteCollector<'a> {
+    pub(crate) data: &'a BitSlice<u8, Lsb0>,
 }
 
-impl CompleteCollector {
-    pub fn to_frame(&self) -> Result<Frame, FrameError> {
+impl <'a> CompleteCollector <'a> {
+    pub fn to_frame(self) -> Result<Frame, FrameError> {
         let data_len = self.data.len();
         if data_len == 0 {return Err(FrameError::EmptyFrame)}
         match data_len.cmp(&8) {
@@ -94,7 +94,7 @@ mod tests {
     #[test]
     fn wrap_collector_1() {
         let complete_collector = CompleteCollector {
-            data: bitvec![u8, Lsb0; 0, 1, 1, 0, 0, 1, 0],
+            data: &bitvec![u8, Lsb0; 0, 1, 1, 0, 0, 1, 0],
         };
         let frame = complete_collector.to_frame().unwrap();
         assert_eq!(frame, Frame::Short(0x26));
@@ -103,7 +103,7 @@ mod tests {
     #[test]
     fn wrap_collector_2() {
         let complete_collector = CompleteCollector {
-            data: bitvec![u8, Lsb0; 0, 1, 0, 0, 1, 0, 1],
+            data: &bitvec![u8, Lsb0; 0, 1, 0, 0, 1, 0, 1],
         };
         let frame = complete_collector.to_frame().unwrap();
         assert_eq!(frame, Frame::Short(0x52));
@@ -112,7 +112,7 @@ mod tests {
     #[test]
     fn wrap_collector_3() {
         let complete_collector = CompleteCollector {
-            data: bitvec![u8, Lsb0; 0, 0, 0, 0, 1, 0, 1, 0, 1],
+            data: &bitvec![u8, Lsb0; 0, 0, 0, 0, 1, 0, 1, 0, 1],
         };
         let frame = complete_collector.to_frame().unwrap();
         assert_eq!(frame, Frame::SddCleanCut(vec![0x50]));
@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn wrap_collector_4() {
         let complete_collector = CompleteCollector {
-            data: bitvec![u8, Lsb0; 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0],
+            data: &bitvec![u8, Lsb0; 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0],
         };
         let frame = complete_collector.to_frame().unwrap();
         assert_eq!(frame, Frame::Standard(vec![0x50, 0x00]));
